@@ -4,4 +4,4 @@
 
 ## Projects
 
-- [`01-lin-reg-api`](./01-lin-reg-api): Dummy + PyTorch-backed FastAPI linear regression model
+- [`01-lin-reg-api`](./01-lin-reg-api): Linear regression API with FastAPI and PyTorch, featuring manual SGD and prediction endpoints.

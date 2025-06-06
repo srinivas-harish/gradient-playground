@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env/
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db 
+
+*.pt
+*.npy
+*.npz
+ 
+.pyright/
+.mypy_cache/

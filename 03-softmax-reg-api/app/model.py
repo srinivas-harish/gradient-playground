@@ -42,3 +42,41 @@ class SoftmaxRegression:
         z = self.logits(x)
         log_sum_exp = torch.log(torch.sum(torch.tensor([math.exp(v.item()) for v in z])))
         return log_sum_exp - z[y]  # neg log likelihood
+
+    def train(self, X: List[torch.Tensor], Y: List[int], lr: float = 0.1, epochs: int = 100):
+        """
+        Trains the softmax regression model using gradient descent.
+        X: list of input tensors (each of shape [input_dim])
+        Y: list of integer class labels (each in [0, num_classes-1])
+        lr: learning rate
+        epochs: number of training iterations
+        """
+        for epoch in range(epochs):
+            total_loss = 0.0
+
+            for x, y in zip(X, Y):
+                # Forward pass
+                z = self.logits(x)
+                exp_z = torch.tensor([math.exp(v.item()) for v in z], dtype=torch.float32)
+                tot_sum = torch.sum(exp_z)
+                probs = exp_z / tot_sum
+
+                # Loss
+                loss = torch.log(tot_sum) - z[y]
+                total_loss += loss.item()
+
+                # Backward pass manually: dL/dz_k = softmax_k - 1(y = k)
+                grad_z = probs.clone()
+                grad_z[y] -= 1.0  # subtract 1 for the correct class
+
+                # Convert gradient w.r.t. z into gradient w.r.t. theta
+                grad_theta = torch.outer(grad_z, x)  # [K, 1] * [1, n] = [K, n]
+
+                # Manual gradient descent step
+                with torch.no_grad():
+                    self.theta -= lr * grad_theta
+                    self.theta.requires_grad = True  # re-enable gradients if needed later
+
+            # Print average loss per epoch
+            avg_loss = total_loss / len(X)
+            print(f"Epoch {epoch+1}/{epochs} - Loss: {avg_loss:.4f}")

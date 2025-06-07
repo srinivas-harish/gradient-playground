@@ -1,0 +1,1 @@
+- [`03-softmax-reg-api`](./03-softmax-reg-api): Multiclass softmax regression API built using PyTorch, with manual cross-entropy loss, gradient updates, and FastAPI endpoint for training and prediction.

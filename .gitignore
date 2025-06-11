@@ -14,3 +14,4 @@ Thumbs.db
 .mypy_cache/
 
 poetry.lock
+X0-var-autoencoder-flowers

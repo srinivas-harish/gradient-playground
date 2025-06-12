@@ -19,7 +19,8 @@ class GDAClassifier:
         centered = X - mean
         cov = (centered.T @ centered) / m  # n x n
         return cov
-
+    
+    '''
     def _gaussian_pdf(self, x, mean, cov):
         """Multivariate Gaussian PDF """
         n = x.shape[0]
@@ -30,6 +31,21 @@ class GDAClassifier:
         norm_const = 1.0 / (np.power(2 * np.pi, n / 2) * np.sqrt(det_cov))
         exponent = -0.5 * (diff.T @ inv_cov @ diff)
         return norm_const * np.exp(exponent)
+    '''
+
+    def _log_gaussian_pdf(self, x, mean, cov):
+        """Log of the multivariate Gaussian PDF"""
+        n = x.shape[0]
+        diff = x - mean
+        inv_cov = np.linalg.inv(cov)
+        sign, logdet = np.linalg.slogdet(cov)
+        if sign != 1:
+            raise ValueError("Covariance matrix not positive-definite")
+
+        exponent = -0.5 * diff.T @ inv_cov @ diff
+        norm_const = -0.5 * (n * np.log(2 * np.pi) + logdet)
+        return norm_const + exponent
+
 
     def fit(self, X, y):
         self.classes = np.unique(y)
@@ -43,16 +59,17 @@ class GDAClassifier:
     def predict(self, X):
         predictions = []
         for x in X:
-            class_probs = {}
+            class_log_probs = {}
             for c in self.classes:
                 prior = self.class_priors[c]
                 mean = self.class_means[c]
                 cov = self.class_covariances[c]
-                likelihood = self._gaussian_pdf(x, mean, cov)
-                class_probs[c] = prior * likelihood
-            predicted_class = max(class_probs, key=class_probs.get)
+                log_likelihood = self._log_gaussian_pdf(x, mean, cov)
+                class_log_probs[c] = np.log(prior) + log_likelihood
+            predicted_class = max(class_log_probs, key=class_log_probs.get)
             predictions.append(predicted_class)
         return np.array(predictions)
+
 
     def accuracy(self, y_true, y_pred):
         return np.mean(y_true == y_pred)

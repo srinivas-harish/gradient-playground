@@ -1,18 +1,16 @@
-[project]
+[tool.poetry]
 name = "ml-playground"
 version = "0.1.0"
 description = ""
-authors = [
-    {name = "Srinivas Harish",email = "srinivas7992@gmail.com"}
-]
-readme = "README.md"
-requires-python = ">=3.12"
-dependencies = [
-    "numpy (>=2.3.0,<3.0.0)",
-    "scikit-learn (>=1.7.0,<2.0.0)",
-    "matplotlib (>=3.10.3,<4.0.0)"
-]
+authors = ["Srinivas Harish <srinivas7992@gmail.com>"]
+readme = "README.md" 
+package-mode = false
 
+[tool.poetry.dependencies]
+python = ">=3.12"
+numpy = ">=2.3.0,<3.0.0"
+scikit-learn = ">=1.7.0,<2.0.0"
+matplotlib = ">=3.10.3,<4.0.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

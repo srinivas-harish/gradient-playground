@@ -1,82 +1,69 @@
-import torch
-import math
-from typing import List
+# model.py
+# Reimplemented based on the Stanford CS229 softmax regression derivation
+
+import numpy as np
 
 class SoftmaxRegression:
-    def __init__(self, input_dim: int, num_classes: int):
-        
-        self.theta = torch.randn(num_classes, input_dim, dtype=torch.float32, requires_grad=True)
+    def __init__(self, K, n, lr=0.01):
+        # K: number of classes
+        # n: number of input features
+        # theta: weight matrix of shape (K x n)
+        # lr: learning rate
 
-    def logits(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Compute raw scores z = θx
-        """
-        return self.theta @ x  # [K, n] @ [n] = [K]
+        self.theta = np.full((K,n),0.5)
+        self.lr = lr 
+        self.K = K
+        self.n = n
 
-    def softmax(self, z: torch.Tensor) -> torch.Tensor:
-        """
-        Manually compute softmax using exp(z_k) / sum(exp(z_j))
-        """
-        exp_z = torch.tensor([math.exp(v.item()) for v in z], dtype=torch.float32)
-        tot_sum = torch.sum(exp_z)
-        return exp_z / tot_sum
+    def softmax(self, logits): 
+        # logits.shape = (m,K), logits = [logit_0, logit_1, ..., logit_K]
+        # softmax_probs.shape = (m, K), predicted probabilities for each class per training example
+        # probs_k = exp(logit k) / sum_j=1^K [(exp(logit j)]
 
-    def predict_proba(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Predict class probabilities
-        """
-        z = self.logits(x)
-        return self.softmax(z)
+        softmax_probs = np.exp(logits - logits.max(axis=1, keepdims=True))
+        softmax_probs /= softmax_probs.sum(axis=1, keepdims=True)
+        return softmax_probs
 
-    def predict(self, x: torch.Tensor) -> int:
-        """
-        Predict the class with highest probability
-        """
-        probs = self.predict_proba(x)
-        return torch.argmax(probs).item()
+    def forward(self, X):
+        # forward(X): H_θ(X) = softmax(Xθ^T)
+        # X: design set, shape.X = (m,n)
+ 
+        logits = X @ self.theta.T       # shape: (m, K)
+        return self.softmax(logits)     # shape: (m, K)
 
-    def loss(self, x: torch.Tensor, y: int) -> torch.Tensor:
-        """
-        Cross-entropy loss for a single example
-        """
-        z = self.logits(x)
-        log_sum_exp = torch.log(torch.sum(torch.tensor([math.exp(v.item()) for v in z])))
-        return log_sum_exp - z[y]  # neg log likelihood
+    def compute_loss(self, P, Y): #for reporting
+        # cross-entropy loss (MLE)
+        # P: prediction/model probabilities
+        # Y: true values
+        # m: number of examples
 
-    def train(self, X: List[torch.Tensor], Y: List[int], lr: float = 0.1, epochs: int = 100):
-        """
-        Trains the softmax regression model using gradient descent.
-        X: list of input tensors (each of shape [input_dim])
-        Y: list of integer class labels (each in [0, num_classes-1])
-        lr: learning rate
-        epochs: number of training iterations
-        """
+        m = Y.shape[0]  
+        eps = 1e-15     # to avoid log(0)
+
+        # to avoid log(0)
+        P = np.clip(P, eps, 1 - eps)
+
+        # Cross-entropy: -1/m * sum(Y * log(P))
+        loss = -np.sum(Y * np.log(P)) / m
+        return loss      
+
+    def backward(self, X, P, Y):
+        # update theta using gradient descent
+        # grad: gradient of cost function (cross-entropy loss)
+
+        m = Y.shape[0]
+        grad = (1/m) * (P - Y).T @ X
+        self.theta -= self.lr * grad
+
+    def train(self, X, Y, epochs):
         for epoch in range(epochs):
-            total_loss = 0.0
+            P = self.forward(X)
+            self.backward(X,P,Y)
 
-            for x, y in zip(X, Y):
-                # Forward pass
-                z = self.logits(x)
-                exp_z = torch.tensor([math.exp(v.item()) for v in z], dtype=torch.float32)
-                tot_sum = torch.sum(exp_z)
-                probs = exp_z / tot_sum
+            if epoch%10==0: # print loss, interval of 10 epochs
+                print(f"Epoch {epoch}, Loss: {self.compute_loss(P,Y):.4f}")
 
-                # Loss
-                loss = torch.log(tot_sum) - z[y]
-                total_loss += loss.item()
+    def predict(self, X):
+        # pick the highest probability class per example
 
-                # Backward pass manually: dL/dz_k = softmax_k - 1(y = k)
-                grad_z = probs.clone()
-                grad_z[y] -= 1.0  # subtract 1 for the correct class
-
-                # Convert gradient w.r.t. z into gradient w.r.t. theta
-                grad_theta = torch.outer(grad_z, x)  # [K, 1] * [1, n] = [K, n]
-
-                # Manual gradient descent step
-                with torch.no_grad():
-                    self.theta -= lr * grad_theta
-                    self.theta.requires_grad = True  # re-enable gradients if needed later
-
-            # Print average loss per epoch
-            avg_loss = total_loss / len(X)
-            print(f"Epoch {epoch+1}/{epochs} - Loss: {avg_loss:.4f}")
+        return np.argmax(self.forward(X), axis=1)

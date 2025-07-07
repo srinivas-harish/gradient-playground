@@ -1,122 +1,40 @@
 # mnist_test.py
-# NEW: Script to train/test softmax on MNIST
 
-import torch
-import math
-from torchvision.datasets import MNIST
-from torchvision.transforms import ToTensor
-from typing import List
-import random
+import numpy as np
+from sklearn.datasets import fetch_openml
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from app.model import SoftmaxRegression
 
-# ---- SoftmaxRegression model, slightly modified ----
+# Load MNIST dataset (10k samples)
+print("Loading MNIST...")
+X, y = fetch_openml('mnist_784', version=1, return_X_y=True, as_frame=False)
+X, y = X[:10000], y[:10000]  # slice for speed
 
-class SoftmaxRegression:
-    def __init__(self, input_dim: int, num_classes: int):
-        self.theta = torch.randn(num_classes, input_dim, dtype=torch.float32) * 0.01
-        self.theta.requires_grad_()   
+# Normalize
+scaler = StandardScaler()
+X = scaler.fit_transform(X)
 
+# One-hot encode
+encoder = OneHotEncoder(sparse_output=False, categories='auto')
+Y = encoder.fit_transform(y.reshape(-1, 1))
 
+# TTS
+X_train, X_test, Y_train, Y_test, y_train_raw, y_test_raw = train_test_split(
+    X, Y, y, test_size=0.2, random_state=42
+)
 
-    def logits(self, x: torch.Tensor) -> torch.Tensor:
-        return self.theta @ x  # [K, n] @ [n] = [K]
+# Initialize and train
+K = Y.shape[1]
+n = X.shape[1]
+model = SoftmaxRegression(K=K, n=n, lr=0.1)
 
-    def softmax(self, z: torch.Tensor) -> torch.Tensor:
-        exp_z = torch.tensor([math.exp(v.item()) for v in z], dtype=torch.float32)
-        tot_sum = torch.sum(exp_z)
-        return exp_z / tot_sum
+print("Training...")
+model.train(X_train, Y_train, epochs=1000, print_interval=100)
 
-    def predict_proba(self, x: torch.Tensor) -> torch.Tensor:
-        z = self.logits(x)
-        return self.softmax(z)
+# Evaluate
+print("Evaluating...")
+y_pred = model.predict(X_test)
+accuracy = np.mean(y_pred == y_test_raw.astype(int))
 
-    def predict(self, x: torch.Tensor) -> int:
-        probs = self.predict_proba(x)
-        return torch.argmax(probs).item()
-
-    def loss(self, x: torch.Tensor, y: int) -> torch.Tensor:
-        z = self.logits(x)
-
-
-
-        z_max = torch.max(z)
-        exp_z = torch.tensor([math.exp((v - z_max).item()) for v in z], dtype=torch.float32)
-        log_sum_exp = z_max + torch.log(torch.sum(exp_z))
-
-
-
-
-        return log_sum_exp - z[y]
-
-    def train(self, X: List[torch.Tensor], Y: List[int], lr: float = 0.1, epochs: int = 10):
-        for epoch in range(epochs):
-            total_loss = 0.0
-
-            for x, y in zip(X, Y):
-                z = self.logits(x)
- 
-                z_max = torch.max(z)
-                exp_z = torch.tensor([math.exp((v - z_max).item()) for v in z], dtype=torch.float32)
- 
-                tot_sum = torch.sum(exp_z)
-                probs = exp_z / tot_sum
-
-                loss = torch.log(tot_sum) - z[y]
-                total_loss += loss.item()
-
-                grad_z = probs.clone()
-                grad_z[y] -= 1.0
-                grad_theta = torch.outer(grad_z, x)
-
-                with torch.no_grad():
-                    self.theta -= lr * grad_theta 
-
-            avg_loss = total_loss / len(X)
-            print(f"Epoch {epoch+1}/{epochs} - Loss: {avg_loss:.4f}")
-
-# ---- MNIST test harness ----
-
-def prepare_data(limit=1000):
-    train_dataset = MNIST(root='data', train=True, download=True, transform=ToTensor())
-    test_dataset = MNIST(root='data', train=False, download=True, transform=ToTensor())
-
-    # Limit dataset to first `limit` samples (faster?)
-    X_train = []
-    Y_train = []
-
-    for i in range(limit):
-        img, label = train_dataset[i]
-        img = img.view(-1).float() / 255.0  # Flatten and normalize to [0, 1]
-        X_train.append(img)
-        Y_train.append(label)
-
-    X_test = []
-    Y_test = []
-
-    for i in range(200):
-        img, label = test_dataset[i]
-        img = img.view(-1).float() / 255.0
-        X_test.append(img)
-        Y_test.append(label)
-
-    return X_train, Y_train, X_test, Y_test
-
-def evaluate(model, X: List[torch.Tensor], Y: List[int]):
-    correct = 0
-    for x, y in zip(X, Y):
-        pred = model.predict(x)
-        if pred == y:
-            correct += 1
-    accuracy = correct / len(X)
-    print(f"Accuracy: {accuracy*100:.2f}%")
-
-if __name__ == "__main__":
-    input_dim = 28 * 28
-    num_classes = 10
-
-    X_train, Y_train, X_test, Y_test = prepare_data(limit=10000)
-
-    model = SoftmaxRegression(input_dim=input_dim, num_classes=num_classes)
-    model.train(X_train, Y_train, lr=0.05, epochs=30)
-
-    print("Evaluating on test set...")
-    evaluate(model, X_test, Y_test)
+print(f"Test Accuracy: {accuracy:.4f}")

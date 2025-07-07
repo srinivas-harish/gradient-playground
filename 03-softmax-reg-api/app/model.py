@@ -55,12 +55,12 @@ class SoftmaxRegression:
         grad = (1/m) * (P - Y).T @ X
         self.theta -= self.lr * grad
 
-    def train(self, X, Y, epochs):
+    def train(self, X, Y, epochs, print_interval):
         for epoch in range(epochs):
             P = self.forward(X)
             self.backward(X,P,Y)
 
-            if epoch%10==0: # print loss, interval of 10 epochs
+            if epoch%print_interval==0: # print loss, interval of 10 epochs
                 print(f"Epoch {epoch}, Loss: {self.compute_loss(P,Y):.4f}")
 
     def predict(self, X):
